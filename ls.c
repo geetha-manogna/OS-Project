@@ -4,15 +4,22 @@
 #include "fs.h"
 
 char*
-fmtname(char *path)
+fmtname(char *path, int isdirectorypath)
 {
   static char buf[DIRSIZ+1];
   char *p;
+  int i;
 
   // Find first character after last slash.
   for(p=path+strlen(path); p >= path && *p != '/'; p--)
     ;
   p++;
+
+  if(isdirectorypath) {
+    i = strlen(p);
+    p[i] = '/';
+    p[i+1] = 0;
+  }
 
   // Return blank-padded name.
   if(strlen(p) >= DIRSIZ)
@@ -22,8 +29,20 @@ fmtname(char *path)
   return buf;
 }
 
+void printfmtname(char* path, struct stat *st, int showhiddencontents) {
+  int ishiddenfileordirectory;
+  
+  char* printablename = fmtname(path, st->type == T_DIR);
+
+  ishiddenfileordirectory = printablename[0] == '.';
+
+  if(!ishiddenfileordirectory || showhiddencontents) {
+      printf(1, "%s %d %d %d\n", printablename, st->type, st->ino, st->size);
+  }
+}
+
 void
-ls(char *path)
+ls(char *path, int showhiddencontents)
 {
   char buf[512], *p;
   int fd;
@@ -43,7 +62,7 @@ ls(char *path)
 
   switch(st.type){
   case T_FILE:
-    printf(1, "%s %d %d %d\n", fmtname(path), st.type, st.ino, st.size);
+    printfmtname(path, &st, showhiddencontents);
     break;
 
   case T_DIR:
@@ -63,23 +82,49 @@ ls(char *path)
         printf(1, "ls: cannot stat %s\n", buf);
         continue;
       }
-      printf(1, "%s %d %d %d\n", fmtname(buf), st.type, st.ino, st.size);
+      printfmtname(buf, &st, showhiddencontents);
     }
     break;
   }
   close(fd);
 }
 
+
+int
+doesargscontainflag(int argc, char *argv[], char *flag) {
+  int i;
+  for(i=1;i<argc;i++) {
+    if(!strcmp(argv[i], flag)) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
 int
 main(int argc, char *argv[])
 {
   int i;
+  char* showhiddencontentsflag = "-a";
+  int showhiddencontents;
 
   if(argc < 2){
-    ls(".");
+    ls(".", 0);
     exit();
   }
-  for(i=1; i<argc; i++)
-    ls(argv[i]);
+
+  showhiddencontents = doesargscontainflag(argc, argv, showhiddencontentsflag);
+
+  if(showhiddencontents && argc == 2) {
+    ls(".", 1);
+    exit();
+  }
+
+  for(i=1; i<argc; i++) {
+    if(strcmp(argv[i], showhiddencontentsflag)) {
+      ls(argv[i], showhiddencontents);
+    }
+  }
+
   exit();
 }
