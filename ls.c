@@ -67,7 +67,7 @@ ls(char *path, int showhiddencontents)
 
   case T_DIR:
     if(strlen(path) + 1 + DIRSIZ + 1 > sizeof buf){
-      printf(1, "ls: path too long\n");
+      printf(2, "ls: path too long\n");
       break;
     }
     strcpy(buf, path);
@@ -79,7 +79,7 @@ ls(char *path, int showhiddencontents)
       memmove(p, de.name, DIRSIZ);
       p[DIRSIZ] = 0;
       if(stat(buf, &st) < 0){
-        printf(1, "ls: cannot stat %s\n", buf);
+        printf(2, "ls: cannot stat %s\n", buf);
         continue;
       }
       printfmtname(buf, &st, showhiddencontents);
