@@ -28,10 +28,11 @@ void uniq(int fd, int countflag, int uniqflag, int widthflag)
     int firstlineflag = 1;
     int minofprevandcurrentline;
     int comparisonlength;
+    int i;
 
     while ((bytesread = read(fd, currentline, sizeof(currentline))) > 0)
     {
-        for (int i = 0; i < bytesread; i++)
+        for (i = 0; i < bytesread; i++)
         {
             if (currentline[i] == '\n')
             {
@@ -106,11 +107,12 @@ void uniq(int fd, int countflag, int uniqflag, int widthflag)
 int main(int argc, char *argv[])
 {
     int fd;
+    int i;
     int countflag = 0;
     int uniqflag = 0;
     int widthflag = 0;
 
-    for (int i = 1; i < argc; i++)
+    for (i = 1; i < argc; i++)
     {
         if (argv[i][0] == '-')
         {
