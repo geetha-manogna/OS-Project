@@ -88,6 +88,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->ticks_running = 0;
 
   release(&ptable.lock);
 
@@ -342,6 +343,7 @@ scheduler(void)
       c->proc = p;
       switchuvm(p);
       p->state = RUNNING;
+      p->ticks_running++;
 
       swtch(&(c->scheduler), p->context);
       switchkvm();
@@ -531,4 +533,23 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+int
+ticks_running(void)
+{
+  int pid;
+  if(argint(0, &pid) < 0)
+    return -1;
+  
+  struct proc *p;
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->pid == pid){
+      release(&ptable.lock);
+      return p->ticks_running;
+    }
+  }
+  release(&ptable.lock);
+  return -1;
 }

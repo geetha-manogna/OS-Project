@@ -1737,6 +1737,41 @@ void argptest()
   printf(1, "arg test passed\n");
 }
 
+void ticks_running_test_with_process_does_not_exist() {
+    int pid = -1;
+    int ticks;
+    
+    ticks = ticks_running(pid);
+
+    if (ticks == -1) 
+      printf(stdout, "Ticks running method successful for a process that does not exists!\n");
+    else {
+      printf(stdout, "Ticks running method failed for a process that does not exists.\n");
+      exit();
+    }
+}
+
+void ticks_running_test_with_runnig_process() {
+    int pid;
+    int ticks;
+    
+    pid = getpid();
+    ticks = ticks_running(pid);
+
+    if (ticks != -1) 
+      printf(stdout, "Ticks running method successful for a running process, number of ticks returned: %d.\n", ticks);
+    else {
+      printf(stdout, "Ticks running method failed for a running process, ticks returned: %d.\n", ticks);
+      exit();
+    }
+}
+
+void ticks_running_tests() {
+  ticks_running_test_with_process_does_not_exist();
+  ticks_running_test_with_runnig_process();
+  printf(stdout, "Ticks running tests OK.");
+}
+
 unsigned long randstate = 1;
 unsigned int
 rand()
@@ -1796,6 +1831,8 @@ main(int argc, char *argv[])
   bigdir(); // slow
 
   uio();
+
+  ticks_running_tests();
 
   exectest();
 
