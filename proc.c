@@ -24,6 +24,14 @@ void
 pinit(void)
 {
   initlock(&ptable.lock, "ptable");
+
+  #ifdef SCHEDULER_FIFO
+    cprintf("Shceduler is FIFO\n");
+  #elif defined(SCHEDULER_DEFAULT)
+   cprintf("Shceduler is DEFAULT\n");
+  #else
+    cprintf("Code flow won't reach here as SCHEDULER will be set to default if nothing is provided.\n");
+  #endif
 }
 
 // Must be called with interrupts disabled
@@ -312,6 +320,73 @@ wait(void)
   }
 }
 
+void scheduleprocessincpu(struct cpu *c, struct proc *p)
+{
+//   char *scheduler = "";
+
+// #ifdef SCHEDULER_FIFO
+//         scheduler = "fifo";
+//     #else
+//     scheduler = "default";
+//     #endif
+
+//   cprintf("\nscheduler: %s, %d %s\n", scheduler, p->pid, p->name);
+  c->proc = p;
+  switchuvm(p);
+  p->state = RUNNING;
+  p->ticks_running++;
+
+  swtch(&(c->scheduler), p->context);
+  switchkvm();
+  // Process is done running for now.
+  // It should have changed its p->state before coming back.
+  c->proc = 0;
+}
+
+void
+scheduler_fifo(struct cpu *c)
+{
+  struct proc *p;
+  struct proc *selected_proc = 0; // Initialize to NULL
+
+  // cprintf("Printing processes: ");
+  // for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+  //   if(p->pid != 0)
+  //   cprintf("%d ", p->pid);
+  // }
+  // cprintf("\n");
+
+  // Find the earliest RUNNABLE process in the list. 
+  // Note: We don't need to create new queue for FIFO implementation. We can use existing ptable.proc array since
+  // it stores processes with incremental process id values. So less pid means it came first. This implementation will save extra space and computation cost.
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state == RUNNABLE) {
+      if (selected_proc == 0 || p->pid < selected_proc->pid) {
+        // If no process is selected yet or the current process has a lower PID,
+        // update the selected process to the current one
+        selected_proc = p;
+      }
+    }
+  }
+
+  // If a RUNNABLE process is found, schedule it
+  if (selected_proc != 0) {
+    scheduleprocessincpu(c, selected_proc);
+  }
+}
+
+void
+scheduler_default(struct cpu *c)
+{
+  struct proc *p;
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->state != RUNNABLE)
+        continue;
+
+      scheduleprocessincpu(c, p);
+  }
+}
+
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -323,37 +398,23 @@ wait(void)
 void
 scheduler(void)
 {
-  struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
   
-  for(;;){
+  for(;;)
+  {
     // Enable interrupts on this processor.
     sti();
-
-    // Loop over process table looking for process to run.
+    
     acquire(&ptable.lock);
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-      p->ticks_running++;
+    #ifdef SCHEDULER_FIFO
+        scheduler_fifo(c);
+    #else
+        scheduler_default(c);
+    #endif
 
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
-
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
-    }
     release(&ptable.lock);
-
   }
 }
 
