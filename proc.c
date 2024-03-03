@@ -748,8 +748,7 @@ get_lottery_tickets(void)
   return -1;
 }
 
-int
-set_lottery_tickets(void)
+int set_lottery_tickets(void)
 {
   int lotterytickets;
   struct proc *p;
@@ -781,16 +780,16 @@ int get_first_scheduled_time(void)
   int pid;
   struct proc *p;
   struct processschedulerinfo *psi;
-  int firstscheduledtime = 0;
+  int firstscheduledtime = -1;
 
   if (argint(0, &pid) < 0)
     return -1;
 
- acquire(&ptable.lock);
+  acquire(&ptable.lock);
   for (psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++)
   {
     p = &(psi->proc);
-    if (p->pid == pid)
+    if (p->pid == pid && (p->state == RUNNABLE || p->state == RUNNING))
     {
       firstscheduledtime = psi->firstscheduledtimeinticks;
       break;
@@ -805,16 +804,16 @@ int get_created_time(void)
   int pid;
   struct proc *p;
   struct processschedulerinfo *psi;
-  int createdtime = 0;
+  int createdtime = -1;
 
   if (argint(0, &pid) < 0)
     return -1;
 
-acquire(&ptable.lock);
+  acquire(&ptable.lock);
   for (psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++)
   {
     p = &(psi->proc);
-    if (p->pid == pid)
+    if (p->pid == pid && (p->state == RUNNABLE || p->state == RUNNING))
     {
       createdtime = psi->createdtimeinticks;
       break;
