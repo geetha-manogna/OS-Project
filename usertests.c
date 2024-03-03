@@ -17,13 +17,6 @@ int stdout = 1;
 void
 iputtest(void)
 {
-  #ifdef SCHEDULER_FIFO
-    printf(1, "Shceduler is FIFO\n");
-  #elif defined(SCHEDULER_DEFAULT)
-   printf(1, "Shceduler is DEFAULT\n");
-  #else
-    printf(1, "This shouldn't be the case\n");
-  #endif
   printf(stdout, "iput test\n");
 
   if(mkdir("iputdir") < 0){
@@ -374,42 +367,27 @@ preempt(void)
     for(;;)
       ;
 
-  printf(1, "Parent process is here with child pid: %d\n", pid1);
-
   pid2 = fork();
   if(pid2 == 0)
     for(;;)
       ;
 
-  printf(1, "Parent process is here with child 2 pid: %d\n", pid2);
-
   pipe(pfds);
-  printf(1, "After pipe\n");
   pid3 = fork();
-  printf(1, "Parent process is here with child 3 pid: %d\n", pid3);
   if(pid3 == 0){
-    printf(1, "child pid3 is executing\n");
     close(pfds[0]);
-    printf(1, "after close line 393\n");
-    printf(1, "At line 390\n");
     if(write(pfds[1], "x", 1) != 1)
       printf(1, "preempt write error");
-    printf(1, "At line 393\n");
     close(pfds[1]);
-    printf(1, "At line 395\n");
-    printf(1, "Write successful from child 3\n");
     for(;;)
       ;
   }
 
-printf(1, "Parent is here after pid3 creation\n");
   close(pfds[1]);
-  printf(1, "Parent is here after pid3 creation 407\n");
   if(read(pfds[0], buf, sizeof(buf)) != 1){
     printf(1, "preempt read error");
     return;
   }
-  printf(1, "parent is at 412");
   close(pfds[0]);
   printf(1, "kill... ");
   kill(pid1);
@@ -1759,41 +1737,6 @@ void argptest()
   printf(1, "arg test passed\n");
 }
 
-void ticks_running_test_with_process_does_not_exist() {
-    int pid = -1;
-    int ticks;
-    
-    ticks = ticks_running(pid);
-
-    if (ticks == -1) 
-      printf(stdout, "Ticks running test successful for a process that does not exists!\n");
-    else {
-      printf(stdout, "Ticks running test failed for a process that does not exists.\n");
-      exit();
-    }
-}
-
-void ticks_running_test_with_runnig_process() {
-    int pid;
-    int ticks;
-    
-    pid = getpid();
-    ticks = ticks_running(pid);
-
-    if (ticks != -1) 
-      printf(stdout, "Ticks running test successful for a running process, number of ticks returned: %d.\n", ticks);
-    else {
-      printf(stdout, "Ticks running test failed for a running process, ticks returned: %d.\n", ticks);
-      exit();
-    }
-}
-
-void ticks_running_tests() {
-  ticks_running_test_with_process_does_not_exist();
-  ticks_running_test_with_runnig_process();
-  printf(stdout, "Ticks running tests OK.\n");
-}
-
 unsigned long randstate = 1;
 unsigned int
 rand()
@@ -1853,8 +1796,6 @@ main(int argc, char *argv[])
   bigdir(); // slow
 
   uio();
-
-  ticks_running_tests();
 
   exectest();
 

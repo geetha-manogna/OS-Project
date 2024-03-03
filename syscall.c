@@ -104,6 +104,11 @@ extern int sys_wait(void);
 extern int sys_write(void);
 extern int sys_uptime(void);
 extern int sys_ticks_running(void);
+extern int sys_fifo_position(void);
+extern int sys_get_lottery_tickets(void);
+extern int sys_set_lottery_tickets(void);
+extern int sys_get_first_scheduled_time(void);
+extern int sys_get_created_time(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -128,6 +133,11 @@ static int (*syscalls[])(void) = {
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
 [SYS_ticks_running] sys_ticks_running,
+[SYS_fifo_position] sys_fifo_position,
+[SYS_get_lottery_tickets] sys_get_lottery_tickets,
+[SYS_set_lottery_tickets] sys_set_lottery_tickets,
+[SYS_get_first_scheduled_time] sys_get_first_scheduled_time,
+[SYS_get_created_time] sys_get_created_time,
 };
 
 void

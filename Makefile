@@ -185,6 +185,7 @@ UPROGS=\
 	_sh\
 	_stressfs\
 	_usertests\
+	_schedulertests\
 	_wc\
 	_zombie\
 	_sleep\

@@ -24,6 +24,11 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 int ticks_running(int);
+int fifo_position(int);
+int get_lottery_tickets(int);
+int set_lottery_tickets(int);
+int get_first_scheduled_time(int);
+int get_created_time(int);
 
 // ulib.c
 int stat(const char*, struct stat*);

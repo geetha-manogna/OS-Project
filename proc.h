@@ -50,6 +50,11 @@ struct proc {
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
   uint ticks_running;          // Number of ticks the process has been scheduled
+  int fifo_position;           // Returns the current position in the queue for the given pid. Returns -1 if the process does not exist or is not in the scheduling queue
+  int get_lottery_tickets;     // Returns the number of tickets held by the process with given pid. Returns -1 if the process does not exist or is not in the scheduling queue
+  int set_lottery_tickets;     // Sets the number of tickets for the current process
+  int get_created_time;        // Returns created time in ticks of a process, used in performance analysis of scheduler
+  int get_first_scheduled_time;// Return first scheduled time in ticks of a process, used in performance analysis of scheduler
 
 };
 

@@ -121,6 +121,11 @@ int             wait(void);
 void            wakeup(void*);
 void            yield(void);
 int             ticks_running(void);
+int             fifo_position(void);
+int             get_lottery_tickets(void);
+int             set_lottery_tickets(void);
+int             get_first_scheduled_time(void);
+int             get_created_time(void);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

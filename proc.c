@@ -7,20 +7,29 @@
 #include "proc.h"
 #include "spinlock.h"
 
+//Global variables
+static struct proc *initproc;
+int nextpid = 1;
+uint LCG_MULTIPLIER = 1664525;
+uint LCG_INCREMENTOR = 1013904223;
+int DEFAULT_TICKETS = 150;
+
 struct processschedulerinfo {
   struct proc proc;
   int fifoorder;
+  int tickets;
+
+  //For analysis purpose. This will help in calculating metrics like response time and waiting time
+  int createdtimeinticks;
+  int firstscheduledtimeinticks;
 };
 
 struct {
   struct spinlock lock;
   struct processschedulerinfo processschedulinginfo[NPROC];
-  // struct proc proc[NPROC];
 } ptable;
 
-static struct proc *initproc;
 
-int nextpid = 1;
 extern void forkret(void);
 extern void trapret(void);
 
@@ -30,14 +39,13 @@ void
 pinit(void)
 {
   initlock(&ptable.lock, "ptable");
+}
 
-  #ifdef SCHEDULER_FIFO
-    cprintf("Shceduler is FIFO\n");
-  #elif defined(SCHEDULER_DEFAULT)
-   cprintf("Shceduler is DEFAULT\n");
-  #else
-    cprintf("Code flow won't reach here as SCHEDULER will be set to default if nothing is provided.\n");
-  #endif
+//Using Linear Congruential Generator method and system ticks to generate random number
+int get_random(int x, int y) {
+    uint xticks = ticks;
+    uint rand = (LCG_MULTIPLIER * xticks + LCG_INCREMENTOR) % (y - x) + x;   
+    return rand;
 }
 
 // Must be called with interrupts disabled
@@ -105,7 +113,9 @@ found:
   p->state = EMBRYO;
   p->pid = nextpid++;
   psi->fifoorder = p->pid;
+  psi->tickets = DEFAULT_TICKETS;
   p->ticks_running = 0;
+  psi->createdtimeinticks = ticks;
 
   release(&ptable.lock);
 
@@ -335,15 +345,6 @@ wait(void)
 
 void scheduleprocessincpu(struct cpu *c, struct proc *p)
 {
-//   char *scheduler = "";
-
-// #ifdef SCHEDULER_FIFO
-//         scheduler = "fifo";
-//     #else
-//     scheduler = "default";
-//     #endif
-
-//   cprintf("\nscheduler: %s, %d %s\n", scheduler, p->pid, p->name);
   c->proc = p;
   switchuvm(p);
   p->state = RUNNING;
@@ -380,8 +381,53 @@ scheduler_fifo(struct cpu *c)
 
   // If a RUNNABLE process is found, schedule it
   if (selectedproc != 0) {
-    cprintf("scheduling pid: %d\n", selectedproc->fifoorder);
-    scheduleprocessincpu(c, &(selectedproc->proc));
+    p = &(selectedproc->proc);
+    if(p->ticks_running == 0) {
+      selectedproc->firstscheduledtimeinticks = ticks;
+    }
+    scheduleprocessincpu(c, p);
+  }
+}
+
+void scheduler_lottery(struct cpu *c)
+{
+  struct processschedulerinfo *psi;
+  struct proc *p;
+  int total_tickets = 0;
+
+  for (psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++)
+  {
+    p = &(psi->proc);
+    if (p->state == RUNNABLE)
+    {
+      total_tickets += psi->tickets;
+    }
+  }
+
+  // No process to run
+  if(total_tickets == 0)
+  {
+    return;
+  }
+
+  int ticket = get_random(0, total_tickets);
+  int chosen_tickets = 0;
+  for (psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++)
+  {
+    p = &(psi->proc);
+    if (p->state == RUNNABLE)
+    {
+      chosen_tickets += psi->tickets;
+      if (chosen_tickets > ticket)
+      {
+        // Schedule the chosen process
+        if(p->ticks_running == 0) {
+          psi->firstscheduledtimeinticks = ticks;
+        }
+        scheduleprocessincpu(c, p);
+        break;
+      }
+    }
   }
 }
 
@@ -395,6 +441,9 @@ scheduler_default(struct cpu *c)
       if(p->state != RUNNABLE)
         continue;
 
+      if(p->ticks_running == 0) {
+        psi->firstscheduledtimeinticks = ticks;
+      }
       scheduleprocessincpu(c, p);
   }
 }
@@ -418,10 +467,12 @@ scheduler(void)
     // Enable interrupts on this processor.
     sti();
     
-    acquire(&ptable.lock);
+    acquire(&ptable.lock);  
 
     #ifdef SCHEDULER_FIFO
         scheduler_fifo(c);
+    #elif defined(SCHEDULER_LOTTERY)
+        scheduler_lottery(c);
     #else
         scheduler_default(c);
     #endif
@@ -616,23 +667,159 @@ procdump(void)
   }
 }
 
-int
-ticks_running(void)
+int ticks_running(void)
 {
   int pid;
-  if(argint(0, &pid) < 0)
+  int ticksrunning;
+  if (argint(0, &pid) < 0)
     return -1;
-  
+
   struct processschedulerinfo *psi;
   struct proc *p;
   acquire(&ptable.lock);
-  for(psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++){
+  for (psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++)
+  {
     p = &(psi->proc);
-    if(p->pid == pid){
+    if (p->pid == pid)
+    {
+      ticksrunning = p->ticks_running;
       release(&ptable.lock);
-      return p->ticks_running;
+      return ticksrunning;
     }
   }
   release(&ptable.lock);
   return -1;
+}
+
+int fifo_position(void)
+{
+  int pid;
+  int fifoposition = 1;
+  int processexists = 0;
+  if (argint(0, &pid) < 0)
+    return -1;
+
+  struct processschedulerinfo *psi;
+  struct proc *p;
+  acquire(&ptable.lock);
+  for (psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++)
+  {
+    p = &(psi->proc);
+    if (p->pid < pid && (p->state == RUNNABLE || p->state == RUNNING))
+    {
+      fifoposition++;
+    }
+    else if (p->pid == pid && (p->state == RUNNABLE || p->state == RUNNING))
+    {
+      processexists = 1;
+    }
+  }
+  release(&ptable.lock);
+  if (processexists == 1)
+  {
+    return fifoposition;
+  }
+  return -1;
+}
+
+int
+get_lottery_tickets(void)
+{
+  int pid;
+  int lotterytickets;
+
+  if (argint(0, &pid) < 0)
+    return -1;
+
+  struct processschedulerinfo *psi;
+  struct proc *p;
+  acquire(&ptable.lock);
+  for (psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++)
+  {
+    p = &(psi->proc);
+    if (p->pid == pid && (p->state == RUNNABLE || p->state == RUNNING))
+    {
+      lotterytickets = psi->tickets;
+      release(&ptable.lock);
+      return lotterytickets;
+    }
+  }
+  release(&ptable.lock);
+  return -1;
+}
+
+int
+set_lottery_tickets(void)
+{
+  int lotterytickets;
+  struct proc *p;
+  struct proc *currproc;
+  struct processschedulerinfo *psi;
+
+  if (argint(0, &lotterytickets) < 0)
+    return -1;
+
+  currproc = myproc();
+  acquire(&ptable.lock);
+
+  for (psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++)
+  {
+    p = &(psi->proc);
+    if (p->pid == currproc->pid)
+    {
+      psi->tickets = lotterytickets;
+      release(&ptable.lock);
+      return lotterytickets;
+    }
+  }
+  release(&ptable.lock);
+  return -1;
+}
+
+int get_first_scheduled_time(void)
+{
+  int pid;
+  struct proc *p;
+  struct processschedulerinfo *psi;
+  int firstscheduledtime = 0;
+
+  if (argint(0, &pid) < 0)
+    return -1;
+
+ acquire(&ptable.lock);
+  for (psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++)
+  {
+    p = &(psi->proc);
+    if (p->pid == pid)
+    {
+      firstscheduledtime = psi->firstscheduledtimeinticks;
+      break;
+    }
+  }
+  release(&ptable.lock);
+  return firstscheduledtime;
+}
+
+int get_created_time(void)
+{
+  int pid;
+  struct proc *p;
+  struct processschedulerinfo *psi;
+  int createdtime = 0;
+
+  if (argint(0, &pid) < 0)
+    return -1;
+
+acquire(&ptable.lock);
+  for (psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++)
+  {
+    p = &(psi->proc);
+    if (p->pid == pid)
+    {
+      createdtime = psi->createdtimeinticks;
+      break;
+    }
+  }
+  release(&ptable.lock);
+  return createdtime;
 }

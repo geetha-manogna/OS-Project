@@ -95,3 +95,33 @@ sys_ticks_running(void)
 {
   return ticks_running();
 }
+
+int
+sys_fifo_position(void)
+{
+  return fifo_position();
+}
+
+int
+sys_get_lottery_tickets(void)
+{
+  return get_lottery_tickets();
+}
+
+int
+sys_set_lottery_tickets(void)
+{
+  return set_lottery_tickets();
+}
+
+int
+sys_get_created_time(void)
+{
+  return get_created_time();
+}
+
+int
+sys_get_first_scheduled_time(void)
+{
+  return get_first_scheduled_time();
+}
