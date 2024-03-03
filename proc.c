@@ -7,9 +7,15 @@
 #include "proc.h"
 #include "spinlock.h"
 
+struct processschedulerinfo {
+  struct proc proc;
+  int fifoorder;
+};
+
 struct {
   struct spinlock lock;
-  struct proc proc[NPROC];
+  struct processschedulerinfo processschedulinginfo[NPROC];
+  // struct proc proc[NPROC];
 } ptable;
 
 static struct proc *initproc;
@@ -81,21 +87,24 @@ myproc(void) {
 static struct proc*
 allocproc(void)
 {
+  struct processschedulerinfo *psi;
   struct proc *p;
   char *sp;
 
   acquire(&ptable.lock);
 
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == UNUSED)
+  for(psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++)
+    if(psi->proc.state == UNUSED)
       goto found;
 
   release(&ptable.lock);
   return 0;
 
 found:
+  p = &(psi->proc);
   p->state = EMBRYO;
   p->pid = nextpid++;
+  psi->fifoorder = p->pid;
   p->ticks_running = 0;
 
   release(&ptable.lock);
@@ -237,6 +246,7 @@ void
 exit(void)
 {
   struct proc *curproc = myproc();
+  struct processschedulerinfo *psi;
   struct proc *p;
   int fd;
 
@@ -262,7 +272,8 @@ exit(void)
   wakeup1(curproc->parent);
 
   // Pass abandoned children to init.
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+  for(psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++){
+    p = &(psi->proc);
     if(p->parent == curproc){
       p->parent = initproc;
       if(p->state == ZOMBIE)
@@ -281,6 +292,7 @@ exit(void)
 int
 wait(void)
 {
+  struct processschedulerinfo *psi;
   struct proc *p;
   int havekids, pid;
   struct proc *curproc = myproc();
@@ -289,7 +301,8 @@ wait(void)
   for(;;){
     // Scan through table looking for exited children.
     havekids = 0;
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    for(psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++){
+      p = &(psi->proc);
       if(p->parent != curproc)
         continue;
       havekids = 1;
@@ -346,40 +359,39 @@ void scheduleprocessincpu(struct cpu *c, struct proc *p)
 void
 scheduler_fifo(struct cpu *c)
 {
+  struct processschedulerinfo *psi;
   struct proc *p;
-  struct proc *selected_proc = 0; // Initialize to NULL
-
-  // cprintf("Printing processes: ");
-  // for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
-  //   if(p->pid != 0)
-  //   cprintf("%d ", p->pid);
-  // }
-  // cprintf("\n");
+  struct processschedulerinfo *selectedproc = 0; // Initialize to NULL
 
   // Find the earliest RUNNABLE process in the list. 
   // Note: We don't need to create new queue for FIFO implementation. We can use existing ptable.proc array since
   // it stores processes with incremental process id values. So less pid means it came first. This implementation will save extra space and computation cost.
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+  for(psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++){
+    p = &(psi->proc);
     if(p->state == RUNNABLE) {
-      if (selected_proc == 0 || p->pid < selected_proc->pid) {
+      // scheduleprocessincpu(c, p);
+      if (selectedproc == 0 || psi->fifoorder < selectedproc->fifoorder) {
         // If no process is selected yet or the current process has a lower PID,
         // update the selected process to the current one
-        selected_proc = p;
+        selectedproc = psi;
       }
     }
   }
 
   // If a RUNNABLE process is found, schedule it
-  if (selected_proc != 0) {
-    scheduleprocessincpu(c, selected_proc);
+  if (selectedproc != 0) {
+    cprintf("scheduling pid: %d\n", selectedproc->fifoorder);
+    scheduleprocessincpu(c, &(selectedproc->proc));
   }
 }
 
 void
 scheduler_default(struct cpu *c)
 {
+  struct processschedulerinfo *psi;
   struct proc *p;
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+  for(psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++){
+      p = &(psi->proc);
       if(p->state != RUNNABLE)
         continue;
 
@@ -520,11 +532,15 @@ sleep(void *chan, struct spinlock *lk)
 static void
 wakeup1(void *chan)
 {
+  struct processschedulerinfo *psi;
   struct proc *p;
 
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan)
+  for (psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++)
+  {
+    p = &(psi->proc);
+    if (p->state == SLEEPING && p->chan == chan)
       p->state = RUNNABLE;
+  }
 }
 
 // Wake up all processes sleeping on chan.
@@ -542,10 +558,12 @@ wakeup(void *chan)
 int
 kill(int pid)
 {
+  struct processschedulerinfo *psi;
   struct proc *p;
 
   acquire(&ptable.lock);
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+  for(psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++){
+    p = &(psi->proc);
     if(p->pid == pid){
       p->killed = 1;
       // Wake process from sleep if necessary.
@@ -575,11 +593,13 @@ procdump(void)
   [ZOMBIE]    "zombie"
   };
   int i;
+  struct processschedulerinfo *psi;
   struct proc *p;
   char *state;
   uint pc[10];
 
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+  for(psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++){
+    p = &(psi->proc);
     if(p->state == UNUSED)
       continue;
     if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
@@ -603,9 +623,11 @@ ticks_running(void)
   if(argint(0, &pid) < 0)
     return -1;
   
+  struct processschedulerinfo *psi;
   struct proc *p;
   acquire(&ptable.lock);
-  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+  for(psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++){
+    p = &(psi->proc);
     if(p->pid == pid){
       release(&ptable.lock);
       return p->ticks_running;
