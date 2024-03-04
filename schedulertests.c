@@ -146,15 +146,16 @@ void functest()
 
 void scheduler_performance_test()
 {
-    int pid1, pid2, pid3;
-    int pfds1[2], pfds2[2], pfds3[2];
-    int i;
+    int pid, pid1, pid2, pid3, pid4;
+    int pfds1[2], pfds2[2], pfds3[2], pfds4[2];
+    int i, ptr = 0;
     int createdtime1 = -1, firstscheduledtime1 = -1, endtime1 = -1;
     int createdtime2 = -1, firstscheduledtime2 = -1, endtime2 = -1;
     int createdtime3 = -1, firstscheduledtime3 = -1, endtime3 = -1;
+    int createdtime4 = -1, firstscheduledtime4 = -1, endtime4 = -1;
 
     printf(1, "Starting scheduler tests\n");
-    printf(1, "Scheduling 3 child processes.\n");
+    printf(1, "Scheduling 4 child processes.\n");
 
     if (pipe(pfds1) == -1)
     {
@@ -171,6 +172,11 @@ void scheduler_performance_test()
         printf(1, "Pipe3 creation failure.\n");
         exit();
     }
+    if (pipe(pfds4) == -1)
+    {
+        printf(1, "Pipe4 creation failure.\n");
+        exit();
+    }
 
     pid1 = fork();
 
@@ -179,9 +185,11 @@ void scheduler_performance_test()
         for (i = 0; i < 100; i++)
             catandwritetest();
 
-        createdtime1 = get_created_time(getpid());
-        firstscheduledtime1 = get_first_scheduled_time(getpid());
+        pid = getpid();
+        createdtime1 = get_created_time(pid);
+        firstscheduledtime1 = get_first_scheduled_time(pid);
         endtime1 = uptime();
+
         close(pfds1[0]);
         if (write(pfds1[1], &createdtime1, sizeof(int)) == -1)
         {
@@ -206,9 +214,12 @@ void scheduler_performance_test()
         if (pid2 == 0)
         {
             stressfstest();
-            createdtime2 = get_created_time(getpid());
-            firstscheduledtime2 = get_first_scheduled_time(getpid());
+
+            pid = getpid();
+            createdtime2 = get_created_time(pid);
+            firstscheduledtime2 = get_first_scheduled_time(pid);
             endtime2 = uptime();
+
             close(pfds2[0]);
             if (write(pfds2[1], &createdtime2, sizeof(int)) == -1)
             {
@@ -234,6 +245,7 @@ void scheduler_performance_test()
             {
                 functest();
 
+                pid = getpid();
                 createdtime3 = get_created_time(getpid());
                 firstscheduledtime3 = get_first_scheduled_time(getpid());
                 endtime3 = uptime();
@@ -257,6 +269,43 @@ void scheduler_performance_test()
                 exit();
             }
 
+            pid4 = fork();
+            if (pid4 == 0)
+            {
+                for (i = 0; i < 150; i++)
+                {
+                    catandwritetest();
+                }
+                stressfstest();
+                for (i = 0; i < 150000; i++)
+                {
+                    ptr++;
+                }
+
+                pid = getpid();
+                createdtime4 = get_created_time(pid);
+                firstscheduledtime4 = get_first_scheduled_time(pid);
+                endtime4 = uptime();
+
+                close(pfds4[0]);
+                if (write(pfds4[1], &createdtime4, sizeof(int)) == -1)
+                {
+                    printf(1, "Writing Create time4 to pipe failed.\n");
+                    exit();
+                }
+                if (write(pfds4[1], &firstscheduledtime4, sizeof(int)) == -1)
+                {
+                    printf(1, "Writing first scheduled time4 to pipe failed.\n");
+                    exit();
+                }
+                if (write(pfds4[1], &endtime4, sizeof(int)) == -1)
+                {
+                    printf(1, "Writing end time4 to pipe failed.\n");
+                    exit();
+                }
+                exit();
+            }
+
             close(pfds1[1]);
             read(pfds1[0], &createdtime1, sizeof(int));
             read(pfds1[0], &firstscheduledtime1, sizeof(int));
@@ -272,12 +321,19 @@ void scheduler_performance_test()
             read(pfds3[0], &firstscheduledtime3, sizeof(int));
             read(pfds3[0], &endtime3, sizeof(int));
 
+            close(pfds4[1]);
+            read(pfds4[0], &createdtime4, sizeof(int));
+            read(pfds4[0], &firstscheduledtime4, sizeof(int));
+            read(pfds4[0], &endtime4, sizeof(int));
+
+            wait();
             wait();
             wait();
             wait();
             printf(1, "Child process 1 Created at: %d and First scheduled at: %d and Ended at: %d\n", createdtime1, firstscheduledtime1, endtime1);
             printf(1, "Child process 2 Created at: %d and First scheduled at: %d and Ended at: %d\n", createdtime2, firstscheduledtime2, endtime2);
             printf(1, "Child process 3 Created at: %d and First scheduled at: %d and Ended at: %d\n", createdtime3, firstscheduledtime3, endtime3);
+            printf(1, "Child process 4 Created at: %d and First scheduled at: %d and Ended at: %d\n", createdtime4, firstscheduledtime4, endtime4);
         }
     }
     printf(1, "Scheduler Test OK.\n");
@@ -372,9 +428,25 @@ void advanced_scheduler_lottery_test()
     printf(1, "Advanced Scheduler test OK.\n\n");
 }
 
+void printscheduleralgorithm()
+{
+#ifdef SCHEDULER_FIFO
+    printf(1, "OS is running on FIFO scheduling algorithm.\n");
+#elif defined(SCHEDULER_LOTTERY)
+    printf(1, "OS is running on Lottery scheduling algorithm.\n");
+#elif defined(SCHEDULER_DEFAULT)
+    printf(1, "OS is running on Default(Round Robin) scheduling algorithm.\n");
+#else
+    printf(1, "OS scheduling algorithm is not defined.\n");
+#endif
+
+    printf(1, "\n");
+}
+
 int main(int argc, char *argv[])
 {
     printf(1, "schedulertests starting\n\n");
+    printscheduleralgorithm();
 
     ticks_running_tests();
     simple_scheduler_fifo_test();

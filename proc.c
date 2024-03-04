@@ -680,7 +680,7 @@ int ticks_running(void)
   for (psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++)
   {
     p = &(psi->proc);
-    if (p->pid == pid)
+    if (p->pid == pid && (p->state == RUNNABLE || p->state == RUNNING || p->state == EMBRYO || p->state == SLEEPING))
     {
       ticksrunning = p->ticks_running;
       release(&ptable.lock);
