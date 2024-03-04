@@ -366,11 +366,11 @@ scheduler_fifo(struct cpu *c)
 
   // Find the earliest RUNNABLE process in the list. 
   // Note: We don't need to create new queue for FIFO implementation. We can use existing ptable.proc array since
-  // it stores processes with incremental process id values. So less pid means it came first. This implementation will save extra space and computation cost.
+  // it stores processes with incremental processId values. So less pid means it came first. This implementation will 
+  // save extra space and computation cost. This is required too because of less space by xv6 kernel and that will trap other processes while calling balloc.
   for(psi = ptable.processschedulinginfo; psi < &ptable.processschedulinginfo[NPROC]; psi++){
     p = &(psi->proc);
     if(p->state == RUNNABLE) {
-      // scheduleprocessincpu(c, p);
       if (selectedproc == 0 || psi->fifoorder < selectedproc->fifoorder) {
         // If no process is selected yet or the current process has a lower PID,
         // update the selected process to the current one
