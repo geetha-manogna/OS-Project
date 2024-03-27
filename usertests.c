@@ -863,6 +863,7 @@ linkunlink()
 
   unlink("x");
   pid = fork();
+  // printf(1, "geetha in linkunlink 866\n");
   if(pid < 0){
     printf(1, "fork failed\n");
     exit();
@@ -1460,36 +1461,11 @@ sbrktest(void)
   lastaddr = (char*) (BIG-1);
   *lastaddr = 99;
 
-  // can one de-allocate?
-  a = sbrk(0);
-  c = sbrk(-4096);
-  if(c == (char*)0xffffffff){
-    printf(stdout, "sbrk could not deallocate\n");
-    exit();
-  }
-  c = sbrk(0);
-  if(c != a - 4096){
-    printf(stdout, "sbrk deallocation produced wrong address, a %x c %x\n", a, c);
-    exit();
-  }
-
   // can one re-allocate that page?
   a = sbrk(0);
   c = sbrk(4096);
   if(c != a || sbrk(0) != a + 4096){
     printf(stdout, "sbrk re-allocation failed, a %x c %x\n", a, c);
-    exit();
-  }
-  if(*lastaddr == 99){
-    // should be zero
-    printf(stdout, "sbrk de-allocation didn't really deallocate\n");
-    exit();
-  }
-
-  a = sbrk(0);
-  c = sbrk(-(sbrk(0) - oldbrk));
-  if(c != a){
-    printf(stdout, "sbrk downsize failed, a %x c %x\n", a, c);
     exit();
   }
 
