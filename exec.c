@@ -10,7 +10,6 @@
 int
 exec(char *path, char **argv)
 {
-  // cprintf("Geetha reached exec 13\n");
   char *s, *last;
   int i, off;
   uint argc, sz, sp, ustack[3+MAXARG+1];
@@ -19,7 +18,6 @@ exec(char *path, char **argv)
   struct proghdr ph;
   pde_t *pgdir, *oldpgdir;
   struct proc *curproc = myproc();
-  // cprintf("Geetha reached exec 21\n");
 
   begin_op();
 

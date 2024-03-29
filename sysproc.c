@@ -51,15 +51,14 @@ sys_sbrk(void)
   if(argint(0, &n) < 0)
     return -1;
   addr = myproc()->sz;
-  // #ifdef ALLOCATOR_LAZY
-  //   myproc()->sz = addr + PGSIZE;
-  // #elif defined(ALLOCATOR_LOCALITY)
-  //   myproc()->sz = addr + 3*PGSIZE;
-  // #endif
   myproc()->sz = addr + n;
-  // if(growproc(n) < 0)
-  //   return -1;
   return addr;
+}
+
+int
+sys_pagefaults(void)
+{
+  return myproc()->pagefaults;
 }
 
 int

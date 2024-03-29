@@ -98,6 +98,7 @@ extern int sys_open(void);
 extern int sys_pipe(void);
 extern int sys_read(void);
 extern int sys_sbrk(void);
+extern int sys_pagefaults(void);
 extern int sys_sleep(void);
 extern int sys_unlink(void);
 extern int sys_wait(void);
@@ -117,6 +118,7 @@ static int (*syscalls[])(void) = {
 [SYS_dup]     sys_dup,
 [SYS_getpid]  sys_getpid,
 [SYS_sbrk]    sys_sbrk,
+[SYS_pagefaults] sys_pagefaults,
 [SYS_sleep]   sys_sleep,
 [SYS_uptime]  sys_uptime,
 [SYS_open]    sys_open,

@@ -69,10 +69,8 @@ void runcmd(struct cmd *cmd)
   struct pipecmd *pcmd;
   struct redircmd *rcmd;
 
-  // printf(1, "geetha sh 67\n");
   if (cmd == 0)
     exit();
-  // printf(1, "geetha sh 69\n");
 
   switch (cmd->type)
   {
@@ -80,17 +78,12 @@ void runcmd(struct cmd *cmd)
     panic("runcmd");
 
   case EXEC:
-    // printf(1, "Geetha Came to exec\n");
     ecmd = (struct execcmd *)cmd;
-    // printf(1, "Geetha sh 79\n");
 
     if (ecmd->argv[0] == 0)
       exit();
-    // printf(1, "Geetha sh 83\n");
 
-    // printf(1, "Geetha sh 85, ecmd->argv0: %s, ecmd->argv: %s\n", ecmd->argv[0], ecmd->argv);
     exec(ecmd->argv[0], ecmd->argv);
-    // printf(1, "Geetha sh 86\n");
     printf(2, "exec %s failed\n", ecmd->argv[0]);
     break;
 
@@ -162,7 +155,6 @@ int main(void)
 {
   static char buf[100];
   int fd;
-  // printf(1, "Geetha sh 158\n");
 
   // Ensure that three file descriptors are open.
   while ((fd = open("console", O_RDWR)) >= 0)
@@ -173,12 +165,10 @@ int main(void)
       break;
     }
   }
-  // printf(1, "Geetha sh 167\n");
 
   // Read and run input commands.
   while (getcmd(buf, sizeof(buf)) >= 0)
   {
-    // printf(1, "Geetha sh 171\n");
     if (buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' ')
     {
       // Chdir must be called by the parent, not the child.
@@ -187,16 +177,12 @@ int main(void)
         printf(2, "cannot cd %s\n", buf + 3);
       continue;
     }
-    // printf(1, "Geetha sh 179\n");
     if (fork1() == 0)
     {
-      // printf(1, "geetha sh 175\n");
       runcmd(parsecmd(buf));
-      // printf(1, "geetha sh 177\n");
     }
 
     wait();
-    // printf(1, "Geetha sh 187 \n");
   }
   exit();
 }
@@ -225,12 +211,8 @@ execcmd(void)
 {
   struct execcmd *cmd;
 
-  // printf(1, "geetha sh 212\n");
-  // printf(1, "geetha sh size of cmd: %d\n", sizeof(*cmd));
   cmd = malloc(sizeof(*cmd));
-  // printf(1, "geetha sh 214\n");
   memset(cmd, 0, sizeof(*cmd));
-  // printf(1, "geetha sh 216\n");
   cmd->type = EXEC;
   return (struct cmd *)cmd;
 }
@@ -361,7 +343,6 @@ parsecmd(char *s)
 {
   char *es;
   struct cmd *cmd;
-  // printf(1, "geetha 344\n");
 
   es = s + strlen(s);
   cmd = parseline(&s, es);
@@ -371,9 +352,7 @@ parsecmd(char *s)
     printf(2, "leftovers: %s\n", s);
     panic("syntax");
   }
-  // printf(1, "geetha 353\n");
   nulterminate(cmd);
-  // printf(1, "geetha 354\n");
   return cmd;
 }
 
@@ -381,10 +360,8 @@ struct cmd *
 parseline(char **ps, char *es)
 {
   struct cmd *cmd;
-  // printf(1, "geetha 363\n");
 
   cmd = parsepipe(ps, es);
-  // printf(1, "geetha 366\n");
   while (peek(ps, es, "&"))
   {
     gettoken(ps, es, 0, 0);
@@ -402,10 +379,8 @@ struct cmd *
 parsepipe(char **ps, char *es)
 {
   struct cmd *cmd;
-  // printf(1, "geetha 382\n");
 
   cmd = parseexec(ps, es);
-  // printf(1, "geetha 385\n");
   if (peek(ps, es, "|"))
   {
     gettoken(ps, es, 0, 0);
@@ -467,13 +442,10 @@ parseexec(char **ps, char *es)
 
   if (peek(ps, es, "("))
   {
-    // printf(1, "geetha 443\n");
     return parseblock(ps, es);
   }
 
-  // printf(1, "geetha 447\n");
   ret = execcmd();
-  // printf(1, "geetha 449\n");
   cmd = (struct execcmd *)ret;
 
   argc = 0;

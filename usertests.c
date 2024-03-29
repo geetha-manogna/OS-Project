@@ -424,6 +424,43 @@ exitwait(void)
   printf(1, "exitwait ok\n");
 }
 
+void sequentialAccessTest() {
+    printf(1, "Sequential Access Test\n");
+    int size = 1024 * 10; // Allocate 10 pages worth of data
+    printf(1, "Pagefaults at start: %d\n", pagefaults());
+    char *buffer = malloc(size);
+    if (buffer == 0) {
+        printf(1, "Failed to allocate memory\n");
+        exit();
+    }
+
+    for (int i = 0; i < size; i++) {
+        buffer[i] = (char)(i & 0xFF); // Access each byte sequentially
+    }
+
+    printf(1, "Sequential access completed\n");
+    free(buffer);
+    printf(1, "Pagefaults at end: %d\n", pagefaults());
+}
+
+void sparseAccessTest() {
+    printf(1, "Sparse Access Test\n");
+    int size = 1024 * 100; // Allocate 100 pages worth of data
+    char *buffer = malloc(size);
+    if (buffer == 0) {
+        printf(1, "Failed to allocate memory\n");
+        exit();
+    }
+
+    for (int i = 0; i < size; i += 1024) { // Access every 1024th byte (page)
+        buffer[i] = (char)(i & 0xFF);
+    }
+
+    printf(1, "Sparse access completed\n");
+    free(buffer);
+}
+
+
 void
 mem(void)
 {
@@ -434,6 +471,7 @@ mem(void)
   ppid = getpid();
   if((pid = fork()) == 0){
     m1 = 0;
+    printf(1, "Pagefaults before memtest: %d\n", pagefaults());
     while((m2 = malloc(10001)) != 0){
       *(char**)m2 = m1;
       m1 = m2;
@@ -450,6 +488,7 @@ mem(void)
       exit();
     }
     free(m1);
+    printf(1, "Pagefaults after memtest: %d\n", pagefaults());
     printf(1, "mem ok\n");
     exit();
   } else {
@@ -863,7 +902,6 @@ linkunlink()
 
   unlink("x");
   pid = fork();
-  // printf(1, "geetha in linkunlink 866\n");
   if(pid < 0){
     printf(1, "fork failed\n");
     exit();
@@ -1731,6 +1769,10 @@ main(int argc, char *argv[])
     exit();
   }
   close(open("usertests.ran", O_CREATE));
+
+  sequentialAccessTest();
+  // randomAccessTest();
+  sparseAccessTest();
 
   argptest();
   createdelete();

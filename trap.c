@@ -14,8 +14,7 @@ extern uint vectors[]; // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
 
-void
-tvinit(void)
+void tvinit(void)
 {
   int i;
 
@@ -31,10 +30,67 @@ void idtinit(void)
   lidt(idt, sizeof(idt));
 }
 
+int allocatememory(pde_t *pgdir, uint oldsz, uint newsz)
+{
+  char *mem;
+  uint a;
+  char *m, *last;
+  pte_t *pte;
+  void *va;
+  uint pa;
+  int perm = PTE_W | PTE_U;
+
+  if (newsz >= KERNBASE)
+    return 0;
+  if (newsz < oldsz)
+    return oldsz;
+
+  a = PGROUNDUP(oldsz);
+  for (; a < newsz; a += PGSIZE)
+  {
+    mem = kalloc();
+    if (mem == 0)
+    {
+      cprintf("allocuvm out of memory\n");
+      // cprintf("Number of pagefaults: %d\n", myproc()->pagefaults);
+      deallocuvm(pgdir, newsz, oldsz);
+      return 0;
+    }
+    memset(mem, 0, PGSIZE);
+    pa = V2P(mem);
+    va = (char *)a;
+
+    m = (char *)PGROUNDDOWN((uint)va);
+    last = (char *)PGROUNDDOWN(((uint)va) + PGSIZE - 1);
+    for (;;)
+    {
+      if ((pte = walkpgdir(pgdir, m, 1)) == 0)
+      {
+        cprintf("allocuvm out of memory (2)\n");
+        deallocuvm(pgdir, newsz, oldsz);
+        kfree(mem);
+        return 0;
+      }
+
+      *pte = pa | perm | PTE_P;
+      if (m == last)
+        break;
+      m += PGSIZE;
+      pa += PGSIZE;
+    }
+  }
+  return newsz;
+}
+
 // PAGEBREAK: 41
 void trap(struct trapframe *tf)
 {
-  uint sz;
+  uint faulting_address = rcr2(); // Getting the faulting address from CR2 register
+  struct proc *current_process = myproc();
+  uint newsz = 0;
+  uint count = 0;
+  uint i = 0;
+  uint oldsz;
 
   if (tf->trapno == T_SYSCALL)
   {
@@ -47,7 +103,7 @@ void trap(struct trapframe *tf)
     return;
   }
 
-  switch(tf->trapno)
+  switch (tf->trapno)
   {
   case T_IRQ0 + IRQ_TIMER:
     if (cpuid() == 0)
@@ -82,35 +138,33 @@ void trap(struct trapframe *tf)
     break;
   case T_PGFLT:
   {
-    uint faulting_address = rcr2(); // Getting the faulting address from CR2 register
-    struct proc *current_process = myproc();
-    uint newsz = 0;
-    uint count = 0;
-    uint i = 0;
-    uint oldsz;
 
-    #ifdef ALLOCATOR_LAZY
-      count = 1;
-    #elif defined(ALLOCATOR_LOCALITY)
-      count = 3;
-    #endif
-
+#ifdef ALLOCATOR_LAZY
+    count = 1;
+#elif defined(ALLOCATOR_LOCALITY)
+    count = 3;
+#endif
 
     // Validating whether the faulting address is within a valid range for the process
     if (faulting_address < KERNBASE)
     {
+      myproc()->pagefaults++;
       oldsz = PGROUNDDOWN(faulting_address);
       newsz = oldsz + PGSIZE;
-      
+
       for (i = 0; i < count; i++)
       {
-        if ((sz = allocuvm(current_process->pgdir, oldsz, newsz)) == 0)
+        if (newsz >= KERNBASE)
         {
-          cprintf("Allocation failed for pid %d at address 0x%x\n", current_process->pid, faulting_address);
+          break;
+        }
+
+        if (allocatememory(current_process->pgdir, oldsz, newsz) == 0)
+        {
           current_process->killed = 1; // Kill the process if allocation fails
           return;                      // Exit the trap function immediately
         }
-        oldsz = newsz + 1;
+        oldsz = newsz;
         newsz += PGSIZE;
       }
       switchuvm(current_process);
