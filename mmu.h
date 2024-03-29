@@ -83,6 +83,8 @@ struct segdesc {
 #define NPDENTRIES      1024    // # directory entries per page directory
 #define NPTENTRIES      1024    // # PTEs per page table
 #define PGSIZE          4096    // bytes mapped by a page
+#define LOCALITY_AWARE_PAGES 3  // Number of pages to allocate when page fault happens in LOCALITY Aware page allocation strategy
+#define LAZY_PAGES      1       // Number of pages to allocate when page fault happens in LAZY page allocation strategy
 
 #define PTXSHIFT        12      // offset of PTX in a linear address
 #define PDXSHIFT        22      // offset of PDX in a linear address

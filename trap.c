@@ -13,6 +13,7 @@ struct gatedesc idt[256];
 extern uint vectors[]; // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
+int pageallocator;
 
 void tvinit(void)
 {
@@ -52,7 +53,7 @@ int allocatememory(pde_t *pgdir, uint oldsz, uint newsz)
     if (mem == 0)
     {
       cprintf("allocuvm out of memory\n");
-      // cprintf("Number of pagefaults: %d\n", myproc()->pagefaults);
+      cprintf("Number of pagefaults: %d\n", myproc()->pagefaults);
       deallocuvm(pgdir, newsz, oldsz);
       return 0;
     }
@@ -85,10 +86,10 @@ int allocatememory(pde_t *pgdir, uint oldsz, uint newsz)
 // PAGEBREAK: 41
 void trap(struct trapframe *tf)
 {
-  uint faulting_address = rcr2(); // Getting the faulting address from CR2 register
-  struct proc *current_process = myproc();
+  uint faulting_address; 
+  struct proc *current_process;
   uint newsz = 0;
-  uint count = 0;
+  // uint count = 0;
   uint i = 0;
   uint oldsz;
 
@@ -138,21 +139,25 @@ void trap(struct trapframe *tf)
     break;
   case T_PGFLT:
   {
+    faulting_address = rcr2(); // Getting the faulting address from CR2 register
+    current_process = myproc();
 
 #ifdef ALLOCATOR_LAZY
-    count = 1;
+    pageallocator = LAZY_PAGES; // 1 is an indicator for number of page to be allocated.
 #elif defined(ALLOCATOR_LOCALITY)
-    count = 3;
+    pageallocator = LOCALITY_AWARE_PAGES; // 3 is an indicator for number of page to be allocated.
 #endif
 
     // Validating whether the faulting address is within a valid range for the process
-    if (faulting_address < KERNBASE)
+    if (faulting_address < KERNBASE && pageallocator != 0)
     {
       myproc()->pagefaults++;
       oldsz = PGROUNDDOWN(faulting_address);
       newsz = oldsz + PGSIZE;
 
-      for (i = 0; i < count; i++)
+      // cprintf("Page fault occured. Allocating %d page(s) based on Allocator used.\n", pageallocator);
+
+      for (i = 0; i < pageallocator; i++)
       {
         if (newsz >= KERNBASE)
         {
