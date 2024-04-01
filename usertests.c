@@ -504,6 +504,7 @@ void sequentialAccessTest()
 
 void sparseAccessTest()
 {
+  int i;
   printf(1, "Sparse Access Test\n");
   printf(1, "Number of page faults at start: %d\n", pagefaults());
   int size = 1024 * 100; // Allocate 100 pages worth of data
@@ -514,7 +515,7 @@ void sparseAccessTest()
     exit();
   }
 
-  for (int i = 0; i < size; i += 1024)
+  for (i = 0; i < size; i += 1024)
   { // Access every 1024th byte (page)
     buffer[i] = (char)(i & 0xFF);
   }
