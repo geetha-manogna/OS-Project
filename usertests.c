@@ -482,6 +482,7 @@ void exitwait(void)
 
 void sequentialAccessTest()
 {
+  int i;
   printf(1, "Sequential Access Test\n");
   int size = 1024 * 10; // Allocate 10 pages worth of data
   printf(1, "Number of page faults at start: %d\n", pagefaults());
@@ -492,7 +493,7 @@ void sequentialAccessTest()
     exit();
   }
 
-  for (int i = 0; i < size; i++)
+  for (i = 0; i < size; i++)
   {
     buffer[i] = (char)(i & 0xFF); // Access each byte sequentially
   }
