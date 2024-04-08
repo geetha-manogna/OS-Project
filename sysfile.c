@@ -91,6 +91,26 @@ sys_write(void)
 }
 
 int
+sys_lseek(void)
+{
+  struct file *f;
+  int n;
+
+  if(argfd(0, 0, &f) < 0 || argint(1, &n) < 0)
+    return -1;
+
+  begin_op();
+  ilock(f->ip);
+
+  f->off+=n;
+
+  iunlock(f->ip);
+  end_op();
+
+  return f->off;
+}
+
+int
 sys_close(void)
 {
   int fd;

@@ -579,6 +579,70 @@ fourfiles(void)
   printf(1, "fourfiles ok\n");
 }
 
+void
+lseektest(void)
+{
+  int fd, n, j;
+  int NUMBER_OF_BYTES = 20, LSEEK_BYTES = 5;
+
+  printf(1, "lseek test\n");
+
+    fd = open("lseekfile", O_CREATE | O_RDWR);
+    if(fd < 0){
+      printf(1, "cannot create lseek\n");
+      exit();
+    }
+    int i;
+    for(i = 0; i < 2; i++){
+      memset(buf, '0'+i+1, 512);
+      printf(1, "Writing %d bytes with character %c\n", NUMBER_OF_BYTES, '0'+i+1);
+      int cc = write(fd, buf, NUMBER_OF_BYTES);
+      if(cc != NUMBER_OF_BYTES){
+        printf(1, "lseek write(%d) ret %d\n", NUMBER_OF_BYTES, cc);
+        exit();
+      }
+      printf(1, "Moving file pointer by %d bytes using lseek system call\n", LSEEK_BYTES);
+      lseek(fd, LSEEK_BYTES);
+    }
+
+    fd = open("lseekfile", 0);
+    n = read(fd, buf, sizeof(buf));
+    
+    close(fd);
+    if(n != NUMBER_OF_BYTES*2 + LSEEK_BYTES){
+      printf(1, "wrong lseek length %d\n", n);
+      exit();
+    } else {
+      printf(1, "Number of bytes in lseekfile, NUMBER_OF_BYTES*2 +LSEEK_BYTES: %d\n", n);
+    }
+
+    j = 0;
+    for(i=0;i<NUMBER_OF_BYTES;i++) {
+      if(buf[i] != '1'){
+        printf(1, "wrong lseek character before lseek call. Character: %c at index: %d\n", buf[i], i);
+        exit();
+      }
+    }
+
+    j = NUMBER_OF_BYTES;
+    for(i=0;i<LSEEK_BYTES;i++) {
+      if(buf[i+j] != 0){
+        printf(1, "wrong lseek character after lseek call and before writing next batch. Character: %c at index: %d\n", buf[i+j], i+j);
+        exit();
+      }
+    }
+
+    j += LSEEK_BYTES;
+    for(i=0;i<NUMBER_OF_BYTES;i++) {
+      if(buf[i+j] != '2'){
+        printf(1, "wrong lseek character after lseek call and after writing next batch. Character: %c at index: %d\n", buf[i+j], i+j);
+        exit();
+      }
+    }
+
+  printf(1, "lseek ok\n");
+}
+
 // four processes create and delete different files in same directory
 void
 createdelete(void)
@@ -1760,6 +1824,7 @@ main(int argc, char *argv[])
   createdelete();
   linkunlink();
   concreate();
+  lseektest();
   fourfiles();
   sharedfd();
 

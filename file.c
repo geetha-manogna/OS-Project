@@ -130,8 +130,33 @@ filewrite(struct file *f, char *addr, int n)
     // and 2 blocks of slop for non-aligned writes.
     // this really belongs lower down, since writei()
     // might be writing a device like the console.
-    int max = ((MAXOPBLOCKS-1-1-2) / 2) * 512;
+    int max = ((MAXOPBLOCKS - 1 - 1 - 2) / 2) * 512;
     int i = 0;
+    int zero_bytes;
+    char zero_buffer[512] = {0}; // Buffer for zero bytes
+    int zero_count;
+
+    // Fill gaps with zero bytes if offset is beyond file size
+    if (f->off > f->ip->size && f->ip->type == 2)
+    {
+      zero_bytes = f->off - f->ip->size;
+      while (zero_bytes > 0)
+      {
+        zero_count = zero_bytes < sizeof(zero_buffer) ? zero_bytes : sizeof(zero_buffer);
+        begin_op();
+        ilock(f->ip);
+        if ((r = writei(f->ip, zero_buffer, f->ip->size, zero_count)) != zero_count)
+        {
+          iunlock(f->ip);
+          end_op();
+          panic("short filewrite");
+        }
+        zero_bytes -= r;
+        iunlock(f->ip);
+        end_op();
+      }
+    }
+
     while(i < n){
       int n1 = n - i;
       if(n1 > max)
