@@ -315,8 +315,9 @@ ilock(struct inode *ip)
 void
 iunlock(struct inode *ip)
 {
-  if(ip == 0 || !holdingsleep(&ip->lock) || ip->ref < 1)
+  if(ip == 0 || !holdingsleep(&ip->lock) || ip->ref < 1) {
     panic("iunlock");
+  }
 
   releasesleep(&ip->lock);
 }
