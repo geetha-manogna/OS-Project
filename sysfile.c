@@ -16,6 +16,9 @@
 #include "file.h"
 #include "fcntl.h"
 
+uint MAX_SYMBOLIC_LINK_DEPTH = 10;
+char resolved_path[DIRSIZ];
+
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
 static int
@@ -302,55 +305,251 @@ create(char *path, short type, short major, short minor)
   return ip;
 }
 
-int
-sys_open(void)
-{
-  char *path;
-  int fd, omode;
-  struct file *f;
-  struct inode *ip;
+// static struct inode* 
+// create(char *path, short type, short major, short minor) {
+//     struct inode *ip, *dp;
+//     char name[DIRSIZ];
 
-  if(argstr(0, &path) < 0 || argint(1, &omode) < 0)
-    return -1;
+//     if((dp = nameiparent(path, name)) == 0)
+//         return 0;
+//     ilock(dp);
 
-  begin_op();
+//     if((ip = dirlookup(dp, name, 0)) != 0){
+//         iunlockput(dp);
+//         ilock(ip);
+//         if(type == T_FILE && ip->type == T_FILE)
+//             return ip;
+//         iunlockput(ip);
+//         return 0;
+//     }
 
-  if(omode & O_CREATE){
-    ip = create(path, T_FILE, 0, 0);
-    if(ip == 0){
-      end_op();
-      return -1;
+//     if((ip = ialloc(dp->dev, type)) == 0)
+//         panic("create: ialloc");
+
+//     ilock(ip);
+//     ip->major = major;
+//     ip->minor = minor;
+//     ip->nlink = 1;
+//     iupdate(ip);
+
+//     if(type == T_DIR){  
+//         dp->nlink++;  // For ".."
+//         iupdate(dp);
+//         // No ip->nlink++ for ".": avoid cyclic ref count.
+//         if(dirlink(ip, ".", ip->inum) < 0 || dirlink(ip, "..", dp->inum) < 0)
+//             panic("create dots");
+//     }
+
+//     if(type == T_SYMLINK) {
+//         if (writei(ip, path, 0, strlen(path)) != strlen(path)){
+//             panic("create: writei");
+//         }  
+//     }
+
+//     if(dirlink(dp, name, ip->inum) < 0)
+//         panic("create: dirlink");
+
+//     iunlockput(dp);
+
+//     return ip;
+// }
+
+
+// int
+// sys_open(void)
+// {
+//   char *path;
+//   int fd, omode;
+//   struct file *f;
+//   struct inode *ip;
+
+//   if(argstr(0, &path) < 0 || argint(1, &omode) < 0)
+//     return -1;
+
+//   begin_op();
+
+//   if(omode & O_CREATE){
+//     ip = create(path, T_FILE, 0, 0);
+//     if(ip == 0){
+//       end_op();
+//       return -1;
+//     }
+//   } else {
+//     if((ip = namei(path)) == 0){
+//       end_op();
+//       return -1;
+//     }
+//     ilock(ip);
+//     if(ip->type == T_DIR && omode != O_RDONLY){
+//       iunlockput(ip);
+//       end_op();
+//       return -1;
+//     }
+//   }
+
+//   if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
+//     if(f)
+//       fileclose(f);
+//     iunlockput(ip);
+//     end_op();
+//     return -1;
+//   }
+//   iunlock(ip);
+//   end_op();
+
+//   f->type = FD_INODE;
+//   f->ip = ip;
+//   f->off = 0;
+//   f->readable = !(omode & O_WRONLY);
+//   f->writable = (omode & O_WRONLY) || (omode & O_RDWR);
+//   return fd;
+// }
+
+int follow_symlink(char *path, char *buf, int depth) {
+    if (depth > MAX_SYMBOLIC_LINK_DEPTH) {  // Maximum depth for symlink resolution
+        return -1;
     }
-  } else {
-    if((ip = namei(path)) == 0){
-      end_op();
-      return -1;
+
+    struct inode *ip = namei(path);
+    if (ip == 0) {
+      cprintf("geetha file not found: %s\n", path);
+        return -1;  // File not found
     }
+    
     ilock(ip);
-    if(ip->type == T_DIR && omode != O_RDONLY){
-      iunlockput(ip);
-      end_op();
-      return -1;
+    if (ip->type != T_SYMLINK) {
+        iunlock(ip);
+        return 0;  // Not a symlink, no need to follow
     }
-  }
 
-  if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
-    if(f)
-      fileclose(f);
-    iunlockput(ip);
-    end_op();
-    return -1;
-  }
-  iunlock(ip);
-  end_op();
-
-  f->type = FD_INODE;
-  f->ip = ip;
-  f->off = 0;
-  f->readable = !(omode & O_WRONLY);
-  f->writable = (omode & O_WRONLY) || (omode & O_RDWR);
-  return fd;
+    int n = readi(ip, buf, 0, DIRSIZ - 1);
+    iunlock(ip);
+    iput(ip);
+    
+    if (n <= 0) {
+        return -1;  // Failed to read link
+    }
+    
+    buf[n] = '\0';  // Ensure null-termination
+    return follow_symlink(buf, buf, depth + 1);  // Recurse to resolve next link
 }
+
+int sys_open(void) {
+    char *path;
+    
+    int fd, omode;
+    struct file *f;
+    struct inode *ip;
+    // int n;
+
+    if(argstr(0, &path) < 0 || argint(1, &omode) < 0)
+        return -1;
+
+    // strncpy(resolved_path, path, DIRSIZ);  // Copy original path
+    // n = strlen(path);
+    // safestrcpy(resolved_path, path, n);
+    // safestrcpy(resolved_path, path, strlen(path)+1);
+    // if(strlen(resolved_path) != strlen(path)) {
+    //   cprintf("Length of res and path not equal: %s,%s.%d.%d.\n", resolved_path, path, strlen(resolved_path), strlen(path));
+    //   panic("strlen not equal\n");
+    // }
+    // if(strncmp(resolved_path, path, strlen(path)) != 0) {
+    //     cprintf("%s__%s not equal\n", resolved_path, path);
+    //     panic("str not equal");
+    // }
+
+
+    begin_op();
+
+
+    if(omode & O_CREATE){
+      cprintf("came to create: %s\n", path);
+        ip = create(path, T_FILE, 0, 0);
+        if(ip == 0){
+            end_op();
+            return -1;
+        }
+        cprintf("geetha after create\n");
+    }
+    else
+    {
+      if (!(omode & O_NOFOLLOW))
+      {
+        // Resolve symbolic links, if any
+        int ret = follow_symlink(path, "", 0);
+        cprintf("came here ret: %d, path : %s,\n", ret, path);
+        if (ret < 0)
+        {
+          end_op();
+          return -1;
+        } // Error or too deep recursion
+      }
+      if ((ip = namei(path)) == 0)
+      {
+        end_op();
+        return -1;
+      }
+      ilock(ip);
+      if (ip->type == T_DIR && omode != O_RDONLY)
+      {
+        iunlockput(ip);
+        end_op();
+        return -1;
+      }
+    }
+
+    if((f = filealloc()) == 0 || (fd = fdalloc(f)) < 0){
+        if(f){
+          cprintf("geetha 504\n");
+fileclose(f);
+cprintf("geetha 506\n");
+        }
+            cprintf("geetha 508\n");
+        iunlockput(ip);
+        end_op();
+        return -1;
+    }
+    iunlock(ip);
+    end_op();
+
+    f->type = FD_INODE;
+    f->ip = ip;
+    f->off = 0;
+    f->readable = !(omode & O_WRONLY);
+    f->writable = (omode & O_WRONLY) || (omode & O_RDWR);
+    cprintf("geetha sysopen successful for resolved path:%s and fd: %d\n", path, fd);
+    return fd;
+}
+
+
+int sys_symlink(void) {
+    char *target, *path;
+    struct inode *ip;
+
+    if(argstr(0, &target) < 0 || argstr(1, &path) < 0)
+        return -1;
+
+    begin_op();
+    if((ip = create(path, T_SYMLINK, 0, 0)) == 0){
+        end_op();
+        return -1;
+    }
+
+    ilock(ip);
+    if(writei(ip, target, 0, strlen(target)) != strlen(target)){
+        iunlockput(ip);
+        end_op();
+        return -1;
+    }
+    iunlock(ip);
+
+    iupdate(ip);
+    iput(ip);
+    end_op();
+
+    return 0;
+}
+
 
 int
 sys_mkdir(void)

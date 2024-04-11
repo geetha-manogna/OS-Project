@@ -687,6 +687,8 @@ createdelete(void)
     wait();
   }
 
+  printf(1, "geetha usertests 690\n");
+
   name[0] = name[1] = name[2] = 0;
   for(i = 0; i < N; i++){
     for(pi = 0; pi < 4; pi++){
@@ -822,6 +824,68 @@ linktest(void)
   }
 
   printf(1, "linktest ok\n");
+}
+
+void
+symlinktest(void)
+{
+  int fd;
+
+  printf(1, "symlinktest\n");
+
+  unlink("lf1");
+  unlink("lf2");
+
+  fd = open("lf1", O_CREATE|O_RDWR);
+  if(fd < 0){
+    printf(1, "create lf1 failed\n");
+    exit();
+  }
+  if(write(fd, "hello", 5) != 5){
+    printf(1, "write lf1 failed\n");
+    exit();
+  }
+  close(fd);
+
+  if(link("lf1", "lf2") < 0){
+    printf(1, "link lf1 lf2 failed\n");
+    exit();
+  }
+  unlink("lf1");
+
+  if(open("lf1", 0) >= 0){
+    printf(1, "unlinked lf1 but it is still there!\n");
+    exit();
+  }
+
+  fd = open("lf2", 0);
+  if(fd < 0){
+    printf(1, "open lf2 failed\n");
+    exit();
+  }
+  if(read(fd, buf, sizeof(buf)) != 5){
+    printf(1, "read lf2 failed\n");
+    exit();
+  }
+  close(fd);
+
+  if(link("lf2", "lf2") >= 0){
+    printf(1, "link lf2 lf2 succeeded! oops\n");
+    exit();
+  }
+
+  unlink("lf2");
+  if(link("lf2", "lf1") >= 0){
+    printf(1, "link non-existant succeeded! oops\n");
+    exit();
+  }
+
+  if(link(".", "lf1") >= 0){
+    printf(1, "link . lf1 succeeded! oops\n");
+    exit();
+  }
+
+  printf(1, "symlinktest ok\n");
 }
 
 // test concurrent create/link/unlink of the same file
@@ -1280,12 +1344,15 @@ fourteen(void)
     printf(1, "mkdir 12345678901234/123456789012345 failed\n");
     exit();
   }
+  printf(1, "geetha 1347\n");
   fd = open("123456789012345/123456789012345/123456789012345", O_CREATE);
   if(fd < 0){
     printf(1, "create 123456789012345/123456789012345/123456789012345 failed\n");
     exit();
   }
+  printf(1, "geetha fouteen 1352\n");
   close(fd);
+  printf(1, "geetha 1354 fourteen\n");
   fd = open("12345678901234/12345678901234/12345678901234", 0);
   if(fd < 0){
     printf(1, "open 12345678901234/12345678901234/12345678901234 failed\n");
@@ -1820,6 +1887,8 @@ main(int argc, char *argv[])
   }
   close(open("usertests.ran", O_CREATE));
 
+  printf(1, "closed usertests.ran\n");
+  fourteen();
   argptest();
   createdelete();
   linkunlink();
@@ -1850,7 +1919,7 @@ main(int argc, char *argv[])
   exitwait();
 
   rmdot();
-  fourteen();
+  // fourteen();
   bigfile();
   subdir();
   linktest();

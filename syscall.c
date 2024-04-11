@@ -83,6 +83,7 @@ argstr(int n, char **pp)
 }
 
 extern int sys_lseek(void);
+extern int sys_symlink(void);
 extern int sys_chdir(void);
 extern int sys_close(void);
 extern int sys_dup(void);
@@ -115,6 +116,7 @@ static int (*syscalls[])(void) = {
 [SYS_exec]    sys_exec,
 [SYS_fstat]   sys_fstat,
 [SYS_lseek]   sys_lseek,
+[SYS_symlink] sys_symlink,
 [SYS_chdir]   sys_chdir,
 [SYS_dup]     sys_dup,
 [SYS_getpid]  sys_getpid,

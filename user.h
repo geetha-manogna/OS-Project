@@ -18,6 +18,7 @@ int fstat(int fd, struct stat*);
 int link(const char*, const char*);
 int mkdir(const char*);
 int lseek(int, int);
+int symlink(const char*, const char*);
 int chdir(const char*);
 int dup(int);
 int getpid(void);
