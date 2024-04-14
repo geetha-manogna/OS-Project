@@ -1921,7 +1921,7 @@ void fsfull()
       total += cc;
       fsblocks++;
     }
-    printf(1, "wrote %d bytes\n", total);
+    printf(1, "wrote %d bytes, fsblocks: %d\n", total, fsblocks);
     close(fd);
     if (total == 0)
       break;
@@ -2007,6 +2007,7 @@ int main(int argc, char *argv[])
   }
   close(open("usertests.ran", O_CREATE));
 
+  fsfull();
   symlinktest();
   argptest();
   createdelete();

@@ -139,6 +139,7 @@ filewrite(struct file *f, char *addr, int n)
     // Fill gaps with zero bytes if offset is beyond file size
     if (f->off > f->ip->size && f->ip->type == 2)
     {
+      cprintf("hello\n");
       zero_bytes = f->off - f->ip->size;
       while (zero_bytes > 0)
       {
