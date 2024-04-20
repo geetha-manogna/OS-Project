@@ -62,7 +62,7 @@ stat_helper(char *path)
     case T_EXTENT: {
         printf(1, "Given path is a Extent based file.\n");
         printf(1, "File INode details--> Type: Extent based file, Size: %d bytes.\n", st.size);
-        printf(1, "INode memory addresses and length of %d data block pointers: \n", 2*(INODEADDRSSIZE/2));
+        printf(1, "INode memory addresses and length of %d data block pointers: \n", INODEADDRSSIZE/2);
         for(i=0;i<2*(INODEADDRSSIZE/2);i+=2) {
             printf(1, "Pointer %d starting address: %d and extent length: %d\n", i/2+1, st.addrs[i], st.addrs[i+1]);
         }

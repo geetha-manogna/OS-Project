@@ -480,7 +480,6 @@ void exitwait(void)
   printf(1, "exitwait ok\n");
 }
 
-
 // More file system tests
 
 // two processes write to the same file descriptor
@@ -927,7 +926,6 @@ void symlinktest(void)
   }
   close(fd);
 
-
   printf(1, "Creating symlink with depth=1.\n");
   if (symlink("sl1", "sl2") < 0)
   {
@@ -945,7 +943,9 @@ void symlinktest(void)
   {
     printf(1, "read sl2 failed. value read is: %s\n", buf);
     exit();
-  } else {
+  }
+  else
+  {
     printf(1, "Successfully read text from sym link of depth=1.\n\n");
   }
   close(fd);
@@ -967,21 +967,27 @@ void symlinktest(void)
   {
     printf(1, "read sl3 failed. value read is: %s\n", buf);
     exit();
-  }else {
+  }
+  else
+  {
     printf(1, "Successfully read text from sym link of depth=2.\n\n");
   }
   close(fd);
 
   printf(1, "Creating cyclic symbolic links. cycle1->cycle2->cycle1\n");
-  if(symlink("cycle1", "cycle2")!=0 || symlink("cycle2","cycle1")!=0){
+  if (symlink("cycle1", "cycle2") != 0 || symlink("cycle2", "cycle1") != 0)
+  {
     printf(1, "Failed to create cycle\n");
     exit();
   }
   fd = open("cycle1", 0);
-  if(fd>=0){
+  if (fd >= 0)
+  {
     printf(1, "Cyclic symbolic link should not have opened.\n");
     exit();
-  } else {
+  }
+  else
+  {
     printf(1, "Cycle detected. Safely terminated search.\n\n");
   }
 
@@ -1029,7 +1035,9 @@ void symlinktest(void)
   {
     printf(1, "open sl6 linked with O_NOFOLLOW failed\n");
     exit();
-  } else {
+  }
+  else
+  {
     printf(1, "Successfully opened a file with O_NOFOLLOW\n");
   }
   unlink("sl6");
@@ -1457,28 +1465,46 @@ void subdir(void)
 // test writes using extent based file system.
 void extentfile(void)
 {
-  int fd, sz = 400,i;
+  int fd, i, cc, readbytes = 0;
 
   printf(1, "extent based file test\n");
 
   fd = open("extent", O_CREATE | O_RDWR | O_EXTENT);
-    if (fd < 0)
+  if (fd < 0)
+  {
+    printf(1, "cannot create bigfile\n");
+    exit();
+  }
+
+  printf(1, "Writing 750 bytes of data in extent file\n");
+
+  for (i = 0; i < 150; i++)
+  {
+    cc = write(fd, "hello", 5);
+    if (cc != 5)
     {
-      printf(1, "cannot create bigwrite\n");
+      printf(1, "write(%d) ret %d\n", sizeof(buf), cc);
       exit();
     }
-    
-    for (i = 0; i < 3; i++)
-    {
-      int cc = write(fd, buf, sz);
-      if (cc != sz)
-      {
-        printf(1, "write(%d) ret %d\n", sz, cc);
-        exit();
-      }
-    }
-    close(fd);
-  
+  }
+
+  close(fd);
+  fd = open("extent", 0);
+
+  while ((cc = read(fd, buf, sizeof(buf))) > 0)
+  {
+    readbytes += cc;
+  }
+
+  if (readbytes != 150 * 5)
+  {
+    printf(1, "Read and write bytes are not equal.\n");
+    exit();
+  }
+
+  printf(1, "Successfully read %d bytes from extent file.\n", readbytes);
+
+  close(fd);
 
   printf(1, "extent ok\n");
 }
@@ -1916,6 +1942,32 @@ void bigargtest(void)
   unlink("bigarg-ok");
 }
 
+void bigfiletest()
+{
+  int fd, i, blocks = 0;
+
+  printf(1, "\nbigFile test\n");
+  fd = open("bigfile", O_CREATE | O_RDWR);
+
+  if (fd < 0)
+  {
+    printf(1, "Open figfile failed\n");
+    exit();
+  }
+
+  printf(1, "Writing 141 blocks to file\n");
+  for (i = 0; i < 141; i++)
+  {
+    int cc = write(fd, buf, 512);
+    if (cc < 512)
+      break;
+    blocks++;
+  }
+  printf(1, "Total blocks written: %d\n", blocks);
+  printf(1, "bigfile ok\n");
+  unlink("bigfile");
+}
+
 // what happens when the file system runs out of blocks?
 // answer: balloc panics, so this test is not useful.
 void fsfull()
@@ -2036,7 +2088,6 @@ int main(int argc, char *argv[])
   }
   close(open("usertests.ran", O_CREATE));
 
-  // fsfull();
   extentfile();
   createtest();
   symlinktest();
@@ -2047,6 +2098,7 @@ int main(int argc, char *argv[])
   lseektest();
   fourfiles();
   sharedfd();
+  bigfiletest();
 
   bigargtest();
   bigwrite();
