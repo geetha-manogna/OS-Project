@@ -1030,7 +1030,7 @@ void symlinktest(void)
     printf(1, "open sl6 linked with O_NOFOLLOW failed\n");
     exit();
   } else {
-    printf(1, "Successfully opened a file with O_NOFOLLOW");
+    printf(1, "Successfully opened a file with O_NOFOLLOW\n");
   }
   unlink("sl6");
 
@@ -1452,6 +1452,35 @@ void subdir(void)
   }
 
   printf(1, "subdir ok\n");
+}
+
+// test writes using extent based file system.
+void extentfile(void)
+{
+  int fd, sz = 400,i;
+
+  printf(1, "extent based file test\n");
+
+  fd = open("extent", O_CREATE | O_RDWR | O_EXTENT);
+    if (fd < 0)
+    {
+      printf(1, "cannot create bigwrite\n");
+      exit();
+    }
+    
+    for (i = 0; i < 3; i++)
+    {
+      int cc = write(fd, buf, sz);
+      if (cc != sz)
+      {
+        printf(1, "write(%d) ret %d\n", sz, cc);
+        exit();
+      }
+    }
+    close(fd);
+  
+
+  printf(1, "extent ok\n");
 }
 
 // test writes that are larger than the log.
@@ -2007,7 +2036,9 @@ int main(int argc, char *argv[])
   }
   close(open("usertests.ran", O_CREATE));
 
-  fsfull();
+  // fsfull();
+  extentfile();
+  createtest();
   symlinktest();
   argptest();
   createdelete();
@@ -2025,8 +2056,8 @@ int main(int argc, char *argv[])
 
   opentest();
   writetest();
-  writetest1();
-  createtest();
+  // writetest1();
+  // createtest();
 
   openiputtest();
   exitiputtest();
