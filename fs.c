@@ -411,6 +411,7 @@ bmap(struct inode *ip, uint bn)
   uint last_block;
   uint acc_blocks;
   uint last_index, block_within_extent, extent_start;
+  int ind;
 
   if (ip->type == T_EXTENT)
   {
@@ -499,7 +500,7 @@ bmap(struct inode *ip, uint bn)
     bn -= NINDIRECT;
 
     // Handling two double-indirect blocks
-    for (int ind = 0; ind < 2; ind++)
+    for (ind = 0; ind < 2; ind++)
     {
       if (bn < NDINDIRECT)
       {
