@@ -407,15 +407,19 @@ bmap(struct inode *ip, uint bn)
   uint addr, *a;
   struct buf *bp, *bp2;
   uint extent_addrs_size = 2*(INODEADDRSSIZE/2);
+  uint i;
+  uint last_block;
+  uint acc_blocks;
+  uint last_index, block_within_extent, extent_start;
 
   if (ip->type == T_EXTENT)
   {
-    uint acc_blocks = 0, block_within_extent, extent_start;
+    acc_blocks = 0, block_within_extent, extent_start;
 
     // First, try to find the block in existing extents
     // Incrementing by 2 because even entries store start address and odd ones the extent length(implemented this way to keep existing
     // implementation backwards compatible)
-    for (int i = 0; i < extent_addrs_size; i += 2)
+    for (i = 0; i < extent_addrs_size; i += 2)
     {
       if (bn < acc_blocks + ip->addrs[i + 1])
       {
@@ -427,8 +431,8 @@ bmap(struct inode *ip, uint bn)
     }
 
     // Try to extend the last extent if there's space
-    int last_index = -1;
-    for (int i = extent_addrs_size - 1; i >= 0; i -= 2)
+    last_index = -1;
+    for (i = extent_addrs_size - 1; i >= 0; i -= 2)
     {
       if (ip->addrs[i] != 0)
       {
@@ -439,7 +443,7 @@ bmap(struct inode *ip, uint bn)
 
     if (last_index != -1)
     {
-      uint last_block = ip->addrs[last_index] + ip->addrs[last_index + 1] * BSIZE;
+      last_block = ip->addrs[last_index] + ip->addrs[last_index + 1] * BSIZE;
 
       if (bcheck_free_alloc(ip->dev, last_block))
       { // Assuming bcheck_free checks if the block is free
@@ -449,7 +453,7 @@ bmap(struct inode *ip, uint bn)
     }
 
     // Allocate a new extent
-    for (int i = 0; i < extent_addrs_size; i += 2)
+    for (i = 0; i < extent_addrs_size; i += 2)
     {
       if (ip->addrs[i + 1] == 0)
       {                         // Find an unused extent entry
